@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from streamlit_js_eval import get_geolocation
 import json
-
+from geopy.geocoders import Nominatim
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Charity Goods",
@@ -66,20 +66,66 @@ if category == "Other":
 # ------------------------------------------------------
 # 2.1.3 - Browser Live Location
 # ------------------------------------------------------
-st.subheader("2.1.3 - Device Location")
+
+# ------------------------------------------------------
+# 1.1.3 - Browser Live Location
+# ------------------------------------------------------
+st.subheader("Device Location")
 
 location_data = get_geolocation()
 
 if location_data:
 
+    # Coordinates
     latitude = location_data["coords"]["latitude"]
     longitude = location_data["coords"]["longitude"]
 
-    st.success(f"Latitude: {latitude}")
-    st.success(f"Longitude: {longitude}")
+    # Reverse Geocoding
+    geolocator = Nominatim(
+        user_agent="goods_exchange_app"
+    )
+
+    location = geolocator.reverse(
+        f"{latitude}, {longitude}"
+    )
+
+    # Address Data
+    address = location.raw["address"]
+
+    # Better City Detection
+    city = (
+        address.get("city")
+        or address.get("town")
+        or address.get("village")
+        or address.get("municipality")
+        or address.get("county")
+        or "Unknown City"
+    )
+
+    # State & Country
+    state = address.get(
+        "state",
+        "Unknown State"
+    )
+
+    country = address.get(
+        "country",
+        "Unknown Country"
+    )
+
+    # Final Location
+    full_location = (
+        f"{city}, {state}, {country}"
+    )
+
+    # Show Location
+    st.success(full_location)
 
 else:
-    st.warning("Please allow browser location permission.")
+
+    st.warning(
+        "Please allow browser location permission."
+    )
 
 # ------------------------------------------------------
 # 2.1.4 - Post Button
