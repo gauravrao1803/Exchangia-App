@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-
+import os
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Charity Listings",
@@ -81,10 +81,19 @@ else:
             # ----------------------------------
             with col1:
 
-                st.image(
-                    item["image"],
-                    width=300
-                )
+                # Show Image Safely
+                if os.path.exists(item["image"]):
+
+                    st.image(
+                        item["image"],
+                        width=300
+                    )
+
+                else:
+
+                    st.warning(
+                        "Image not found."
+                    )
 
                 st.subheader(
                     f"📦 {item['category']}"
