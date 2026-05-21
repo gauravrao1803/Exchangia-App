@@ -1,1 +1,14 @@
-[]
+[
+    {
+        "image": "uploads\\ferrari-e-suv-2-copy-680287cac36b2.jpg",
+        "category": "Cars",
+        "location": "Rohtak, Haryana, India",
+        "status": "Approved"
+    },
+    {
+        "image": "uploads\\anshu_signature_5_2_ratio.jpg",
+        "category": "Electronics",
+        "location": "Rohtak, Haryana, India",
+        "status": "Denied"
+    }
+]

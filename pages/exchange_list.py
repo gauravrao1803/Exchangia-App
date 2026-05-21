@@ -8,20 +8,50 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- TITLE ----------------
-st.title("📋 Exchange Listings")
-
-# ---------------- RED BUTTON CSS ----------------
+# ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
-div.stButton > button {
-    background-color: red;
+
+/* Background */
+.stApp {
+    background-color: #0f172a;
     color: white;
-    border-radius: 8px;
+}
+
+/* Card */
+.item-card {
+    background-color: #1e293b;
+    padding: 25px;
+    border-radius: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0px 0px 15px rgba(255,255,255,0.05);
+}
+
+/* Title */
+.title {
+    text-align: center;
+    font-size: 45px;
+    font-weight: bold;
+    color: white;
+}
+
+/* Buttons */
+div.stButton > button {
+    width: 100%;
+    border-radius: 10px;
+    height: 45px;
+    font-size: 16px;
     border: none;
 }
+
 </style>
 """, unsafe_allow_html=True)
+
+# ---------------- TITLE ----------------
+st.markdown(
+    '<p class="title">📋 Exchange Listings</p>',
+    unsafe_allow_html=True
+)
 
 # ---------------- LOAD DATA ----------------
 with open("data/exchange_data.json", "r") as file:
@@ -37,83 +67,166 @@ else:
 
     for index, item in enumerate(data):
 
-        col1, col2 = st.columns([4, 1])
+        with st.container():
 
-        # --------------------------------------
-        # ITEM DETAILS
-        # --------------------------------------
-        with col1:
-
-            st.image(item["image"], width=250)
-
-            st.write(f"Category: {item['category']}")
-
-            st.write(
-                f"Location: {item['latitude']}, {item['longitude']}"
+            st.markdown(
+                '<div class="item-card">',
+                unsafe_allow_html=True
             )
 
-        # --------------------------------------
-        # DELETE SECTION
-        # --------------------------------------
-        with col2:
+            col1, col2 = st.columns([3, 1])
 
-            # Delete Button
-            if st.button(
-                "Delete",
-                key=f"delete_{index}"
-            ):
+            # ----------------------------------
+            # LEFT SIDE
+            # ----------------------------------
+            with col1:
 
-                st.session_state[
-                    f"confirm_delete_{index}"
-                ] = True
+                st.image(
+                    item["image"],
+                    width=300
+                )
 
-            # Confirmation Box
-            if st.session_state.get(
-                f"confirm_delete_{index}",
-                False
-            ):
+                st.subheader(
+                    f"📦 {item['category']}"
+                )
 
-                st.warning("Are you sure?")
+                st.write(
+                    f"📍 {item['location']}"
+                )
 
-                yes_col, no_col = st.columns(2)
+                # Status
+                status = item.get(
+                    "status",
+                    "Pending"
+                )
 
-                # YES
-                with yes_col:
+                if status == "Approved":
 
-                    if st.button(
-                        "Yes",
-                        key=f"yes_{index}"
-                    ):
+                    st.success(
+                        f"✅ Status: {status}"
+                    )
 
-                        data.pop(index)
+                elif status == "Denied":
 
-                        with open(
-                            "data/exchange_data.json",
-                            "w"
-                        ) as file:
+                    st.error(
+                        f"❌ Status: {status}"
+                    )
 
-                            json.dump(
-                                data,
-                                file,
-                                indent=4
-                            )
+                else:
 
-                        st.success("Item Deleted ✅")
+                    st.warning(
+                        f"⏳ Status: {status}"
+                    )
 
-                        st.rerun()
+            # ----------------------------------
+            # RIGHT SIDE
+            # ----------------------------------
+            with col2:
 
-                # NO
-                with no_col:
+                st.subheader("Admin")
 
-                    if st.button(
-                        "No",
-                        key=f"no_{index}"
-                    ):
+                # APPROVE
+                if st.button(
+                    "✅ Approve",
+                    key=f"approve_{index}"
+                ):
 
-                        st.session_state[
-                            f"confirm_delete_{index}"
-                        ] = False
+                    data[index]["status"] = "Approved"
 
-                        st.rerun()
+                    with open(
+                        "data/exchange_data.json",
+                        "w"
+                    ) as file:
 
-        st.divider()
+                        json.dump(
+                            data,
+                            file,
+                            indent=4
+                        )
+
+                    st.rerun()
+
+                # DENY
+                if st.button(
+                    "❌ Deny",
+                    key=f"deny_{index}"
+                ):
+
+                    data[index]["status"] = "Denied"
+
+                    with open(
+                        "data/exchange_data.json",
+                        "w"
+                    ) as file:
+
+                        json.dump(
+                            data,
+                            file,
+                            indent=4
+                        )
+
+                    st.rerun()
+
+                # DELETE
+                if st.button(
+                    "🗑 Delete",
+                    key=f"delete_{index}"
+                ):
+
+                    st.session_state[
+                        f"confirm_delete_{index}"
+                    ] = True
+
+                # CONFIRM DELETE
+                if st.session_state.get(
+                    f"confirm_delete_{index}",
+                    False
+                ):
+
+                    st.warning(
+                        "Are you sure?"
+                    )
+
+                    yes_col, no_col = st.columns(2)
+
+                    # YES
+                    with yes_col:
+
+                        if st.button(
+                            "Yes",
+                            key=f"yes_{index}"
+                        ):
+
+                            data.pop(index)
+
+                            with open(
+                                "data/exchange_data.json",
+                                "w"
+                            ) as file:
+
+                                json.dump(
+                                    data,
+                                    file,
+                                    indent=4
+                                )
+
+                            st.rerun()
+
+                    # NO
+                    with no_col:
+
+                        if st.button(
+                            "No",
+                            key=f"no_{index}"
+                        ):
+
+                            st.session_state[
+                                f"confirm_delete_{index}"
+                            ] = False
+
+                            st.rerun()
+
+            st.markdown(
+                '</div>',
+                unsafe_allow_html=True
+            )

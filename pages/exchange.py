@@ -1,184 +1,237 @@
 import streamlit as st
 import os
-from streamlit_js_eval import get_geolocation
 import json
+from streamlit_js_eval import get_geolocation
 from geopy.geocoders import Nominatim
+
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Exchange Goods",
     page_icon="🔄",
-    layout="centered"
+    layout="wide"
 )
 
-# ---------------- TITLE ----------------
-st.title("🔄 Exchange Goods")
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
+<style>
 
-# ---------------- CREATE UPLOAD FOLDER ----------------
+/* Background */
+.stApp {
+    background-color: #0f172a;
+    color: white;
+}
+
+/* Main Card */
+.main-card {
+    background-color: #1e293b;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0px 0px 20px rgba(255,255,255,0.08);
+}
+
+/* Title */
+.title {
+    text-align: center;
+    font-size: 45px;
+    font-weight: bold;
+    color: white;
+}
+
+/* Button */
+div.stButton > button {
+    width: 100%;
+    background-color: #2563eb;
+    color: white;
+    border-radius: 10px;
+    height: 50px;
+    font-size: 18px;
+    border: none;
+}
+
+/* Inputs */
+.stTextInput input,
+.stSelectbox div[data-baseweb="select"] {
+    border-radius: 10px;
+}
+
+/* Upload */
+section[data-testid="stFileUploader"] {
+    background-color: #334155;
+    padding: 15px;
+    border-radius: 12px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------- TITLE ----------------
+st.markdown(
+    '<p class="title">🔄 Exchange Goods</p>',
+    unsafe_allow_html=True
+)
+
+# ---------------- CREATE FOLDERS ----------------
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
 
-# ======================================================
-# 1.1 - POST YOUR GOODS
-# ======================================================
+# ---------------- MAIN CARD ----------------
+with st.container():
 
-st.header("1.1 - Post Your Goods")
+    st.markdown('<div class="main-card">', unsafe_allow_html=True)
 
-# ------------------------------------------------------
-# 1.1.1 - Upload Photo
-# ------------------------------------------------------
-uploaded_file = st.file_uploader(
-    "1.1.1 - Upload Photo",
-    type=["jpg", "jpeg", "png"]
-)
+    st.subheader("1.1 - Post Your Goods")
 
-# Preview Image
-if uploaded_file:
-    st.image(
-        uploaded_file,
-        caption="Uploaded Product Image",
-        width=250
+    # ------------------------------------------------------
+    # Upload Photo
+    # ------------------------------------------------------
+    uploaded_file = st.file_uploader(
+        "📸 Upload Product Photo",
+        type=["jpg", "jpeg", "png"]
     )
 
-# ------------------------------------------------------
-# 1.1.2 - Category (Optional)
-# ------------------------------------------------------
-category = st.selectbox(
-    "1.1.2 - Category (Optional)",
-    [
-        "Electronics",
-        "Books",
-        "Clothes",
-        "Furniture",
-        "Sports",
-        "Other"
-    ]
-)
+    if uploaded_file:
 
-# If Other selected
-custom_category = ""
+        st.image(
+            uploaded_file,
+            width=300
+        )
 
-if category == "Other":
-
-    custom_category = st.text_input(
-        "Enter Custom Category"
+    # ------------------------------------------------------
+    # Category
+    # ------------------------------------------------------
+    category = st.selectbox(
+        "📦 Select Category",
+        [
+            "Electronics",
+            "Books",
+            "Clothes",
+            "Furniture",
+            "Sports",
+            "Other"
+        ]
     )
 
-# ------------------------------------------------------
-# 1.1.3 - Browser Live Location
-# ------------------------------------------------------
-# ------------------------------------------------------
-# 1.1.3 - Browser Live Location
-# ------------------------------------------------------
-st.subheader("Device Location")
+    custom_category = ""
 
-location_data = get_geolocation()
+    if category == "Other":
 
-if location_data:
+        custom_category = st.text_input(
+            "Enter Custom Category"
+        )
 
-    # Coordinates
-    latitude = location_data["coords"]["latitude"]
-    longitude = location_data["coords"]["longitude"]
+    # ------------------------------------------------------
+    # Live Location
+    # ------------------------------------------------------
+    st.subheader("📍 Device Location")
 
-    # Reverse Geocoding
-    geolocator = Nominatim(
-        user_agent="goods_exchange_app"
-    )
+    location_data = get_geolocation()
 
-    location = geolocator.reverse(
-        f"{latitude}, {longitude}"
-    )
+    if location_data:
 
-    # Address Data
-    address = location.raw["address"]
+        latitude = location_data["coords"]["latitude"]
+        longitude = location_data["coords"]["longitude"]
 
-    # Better City Detection
-    city = (
-        address.get("city")
-        or address.get("town")
-        or address.get("village")
-        or address.get("municipality")
-        or address.get("county")
-        or "Unknown City"
-    )
+        geolocator = Nominatim(
+            user_agent="goods_exchange_app"
+        )
 
-    # State & Country
-    state = address.get(
-        "state",
-        "Unknown State"
-    )
+        location = geolocator.reverse(
+            f"{latitude}, {longitude}"
+        )
 
-    country = address.get(
-        "country",
-        "Unknown Country"
-    )
+        address = location.raw["address"]
 
-    # Final Location
-    full_location = (
-        f"{city}, {state}, {country}"
-    )
+        city = (
+            address.get("city")
+            or address.get("town")
+            or address.get("village")
+            or address.get("municipality")
+            or address.get("county")
+            or "Unknown City"
+        )
 
-    # Show Location
-    st.success(full_location)
+        state = address.get("state")
 
-else:
+        country = address.get("country")
 
-    st.warning(
-        "Please allow browser location permission."
-    )
+        full_location = (
+            f"{city}, {state}, {country}"
+        )
 
-# ------------------------------------------------------
-# 1.1.4 - Post Button
-# ------------------------------------------------------
-if st.button("Post"):
-
-    if uploaded_file is None:
-        st.error("Please upload a photo.")
-
-    elif not location_data:
-        st.error("Location is required.")
+        st.success(full_location)
 
     else:
 
-        # Save Uploaded Image
-        file_path = os.path.join(
-            "uploads",
-            uploaded_file.name
+        st.warning(
+            "Please allow browser location permission."
         )
 
-        with open(file_path, "wb") as file:
-            file.write(uploaded_file.getbuffer())
+    # ------------------------------------------------------
+    # Post Button
+    # ------------------------------------------------------
+    if st.button("🚀 Post Item"):
 
-        # Final Category
-        final_category = category
+        if uploaded_file is None:
 
-        if category == "Other":
-            final_category = custom_category
+            st.error("Please upload image.")
 
-        # Store Data
-        item_data = {
-            "image": file_path,
-            "category": final_category,
-            "latitude": latitude,
-            "longitude": longitude
-        }
+        elif not location_data:
 
-        # Read Existing Data
-        with open("data/exchange_data.json", "r") as file:
-            data = json.load(file)
+            st.error("Location is required.")
 
-        # Add New Item
-        data.append(item_data)
+        else:
 
-        # Save Updated Data
-        with open("data/exchange_data.json", "w") as file:
-            json.dump(data, file, indent=4)
+            file_path = os.path.join(
+                "uploads",
+                uploaded_file.name
+            )
 
-        st.success("Goods Posted Successfully ✅")
+            with open(file_path, "wb") as file:
 
-        # Redirect
-        st.switch_page("pages/exchange_list.py")
+                file.write(
+                    uploaded_file.getbuffer()
+                )
 
-        # --------------------------------------------------
-        # 1.1.5 - Redirect to Main Listing Page
-        # --------------------------------------------------
-        st.switch_page("pages/exchange_list.py")
+            final_category = category
+
+            if category == "Other":
+
+                final_category = custom_category
+
+            # Store Data
+            item_data = {
+                "image": file_path,
+                "category": final_category,
+                "location": full_location,
+                "status": "Pending"
+            }
+
+            with open(
+                "data/exchange_data.json",
+                "r"
+            ) as file:
+
+                data = json.load(file)
+
+            data.append(item_data)
+
+            with open(
+                "data/exchange_data.json",
+                "w"
+            ) as file:
+
+                json.dump(
+                    data,
+                    file,
+                    indent=4
+                )
+
+            st.success(
+                "Item Posted Successfully ✅"
+            )
+
+            st.switch_page(
+                "pages/exchange_list.py"
+            )
+
+    st.markdown('</div>', unsafe_allow_html=True)
