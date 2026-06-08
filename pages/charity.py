@@ -1,91 +1,124 @@
 import streamlit as st
 import os
-import json
+import uuid
+
 from streamlit_js_eval import get_geolocation
 from geopy.geocoders import Nominatim
 
-# ---------------- PAGE CONFIG ----------------
+from database import charity_collection
+
+from utils.auth import check_role
+from utils.sidebar import render_sidebar
+from utils.styles import load_css
+
+# =====================================
+# PAGE CONFIG
+# =====================================
+
 st.set_page_config(
-    page_title="Charity / Give Away",
+    page_title="Donate Item",
     page_icon="❤️",
     layout="wide"
 )
 
-# ---------------- CUSTOM CSS ----------------
+# =====================================
+# AUTH
+# =====================================
+
+check_role("User")
+
+load_css()
+render_sidebar()
+
+# =====================================
+# HERO SECTION
+# =====================================
+
 st.markdown("""
-<style>
-
-/* Background */
-.stApp {
-    background-color: #0f172a;
-    color: white;
-}
-
-/* Main Card */
-.main-card {
-    background-color: #1e293b;
-    padding: 30px;
-    border-radius: 20px;
-    box-shadow: 0px 0px 20px rgba(255,255,255,0.08);
-}
-
-/* Title */
-.title {
-    text-align: center;
-    font-size: 45px;
-    font-weight: bold;
-    color: white;
-}
-
-/* Button */
-div.stButton > button {
-    width: 100%;
-    background-color: #dc2626;
-    color: white;
-    border-radius: 10px;
-    height: 50px;
-    font-size: 18px;
-    border: none;
-}
-
-/* Inputs */
-.stTextInput input,
-.stSelectbox div[data-baseweb="select"] {
-    border-radius: 10px;
-}
-
-/* Upload */
-section[data-testid="stFileUploader"] {
-    background-color: #334155;
-    padding: 15px;
-    border-radius: 12px;
-}
-
-</style>
+<div class="hero-card">
+    <h1>❤️ Donate an Item</h1>
+    <p>
+        Give your unused items a second life and help people in need.
+    </p>
+</div>
 """, unsafe_allow_html=True)
 
-# ---------------- TITLE ----------------
-st.markdown(
-    '<p class="title">❤️ Charity / Give Away</p>',
-    unsafe_allow_html=True
+# =====================================
+# CREATE UPLOAD FOLDER
+# =====================================
+
+os.makedirs(
+    "uploads",
+    exist_ok=True
 )
 
-# ---------------- CREATE FOLDERS ----------------
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
+# =====================================
+# LOCATION DETECTION
+# =====================================
 
-# ---------------- MAIN CARD ----------------
-with st.container():
+full_location = "Unknown Location"
 
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
+location_data = get_geolocation()
 
-    st.subheader("2.1 - Give Away Goods")
+if location_data:
 
-    # ------------------------------------------------------
-    # Upload Photo
-    # ------------------------------------------------------
+    try:
+
+        latitude = location_data["coords"]["latitude"]
+        longitude = location_data["coords"]["longitude"]
+
+        geolocator = Nominatim(
+            user_agent="exchangia"
+        )
+
+        location = geolocator.reverse(
+            f"{latitude},{longitude}"
+        )
+
+        if location:
+
+            address = location.raw["address"]
+
+            city = (
+                address.get("city")
+                or address.get("town")
+                or address.get("village")
+                or "Unknown City"
+            )
+
+            state = address.get(
+                "state",
+                ""
+            )
+
+            country = address.get(
+                "country",
+                ""
+            )
+
+            full_location = (
+                f"{city}, {state}, {country}"
+            )
+
+    except:
+
+        pass
+
+# =====================================
+# DONATION FORM
+# =====================================
+
+with st.form(
+    "charity_form",
+    clear_on_submit=False
+):
+
+    st.markdown(
+        "### 📦 Donation Information"
+    )
+
     uploaded_file = st.file_uploader(
-        "📸 Upload Product Photo",
+        "Upload Item Image",
         type=["jpg", "jpeg", "png"]
     )
 
@@ -96,142 +129,133 @@ with st.container():
             width=300
         )
 
-    # ------------------------------------------------------
-    # Category
-    # ------------------------------------------------------
-    category = st.selectbox(
-        "📦 Select Category",
-        [
-            "Electronics",
-            "Books",
-            "Clothes",
-            "Furniture",
-            "Sports",
-            "Other"
-        ]
-    )
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        category = st.selectbox(
+            "Category",
+            [
+                "Electronics",
+                "Books",
+                "Clothes",
+                "Furniture",
+                "Sports",
+                "Other"
+            ]
+        )
+
+    with col2:
+
+        condition = st.selectbox(
+            "Condition",
+            [
+                "New",
+                "Like New",
+                "Good",
+                "Used"
+            ]
+        )
 
     custom_category = ""
 
     if category == "Other":
 
         custom_category = st.text_input(
-            "Enter Custom Category"
+            "Custom Category"
         )
 
-    # ------------------------------------------------------
-    # Live Location
-    # ------------------------------------------------------
-    st.subheader("📍 Device Location")
+    item_name = st.text_input(
+        "Item Name"
+    )
 
-    location_data = get_geolocation()
+    description = st.text_area(
+        "Description",
+        placeholder="Describe item condition, age, accessories, etc."
+    )
 
-    if location_data:
+    st.markdown("### 📍 Location")
 
-        latitude = location_data["coords"]["latitude"]
-        longitude = location_data["coords"]["longitude"]
+    st.info(full_location)
 
-        geolocator = Nominatim(
-            user_agent="goods_exchange_app"
+    submitted = st.form_submit_button(
+        "❤️ Post Donation",
+        use_container_width=True
+    )
+
+# =====================================
+# SAVE DONATION
+# =====================================
+
+if submitted:
+
+    if uploaded_file is None:
+
+        st.error(
+            "Please upload an image."
         )
 
-        location = geolocator.reverse(
-            f"{latitude}, {longitude}"
+    elif not item_name.strip():
+
+        st.error(
+            "Please enter item name."
         )
-
-        address = location.raw["address"]
-
-        city = (
-            address.get("city")
-            or address.get("town")
-            or address.get("village")
-            or address.get("municipality")
-            or address.get("county")
-            or "Unknown City"
-        )
-
-        state = address.get("state")
-
-        country = address.get("country")
-
-        full_location = (
-            f"{city}, {state}, {country}"
-        )
-
-        st.success(full_location)
 
     else:
 
-        st.warning(
-            "Please allow browser location permission."
+        final_category = category
+
+        if category == "Other":
+
+            if not custom_category.strip():
+
+                st.error(
+                    "Please enter custom category."
+                )
+
+                st.stop()
+
+            final_category = custom_category
+
+        extension = uploaded_file.name.split(".")[-1]
+
+        unique_filename = (
+            f"{uuid.uuid4()}.{extension}"
         )
 
-    # ------------------------------------------------------
-    # Post Button
-    # ------------------------------------------------------
-    if st.button("❤️ Donate Item"):
+        file_path = os.path.join(
+            "uploads",
+            unique_filename
+        )
 
-        if uploaded_file is None:
+        with open(
+            file_path,
+            "wb"
+        ) as file:
 
-            st.error("Please upload image.")
-
-        elif not location_data:
-
-            st.error("Location is required.")
-
-        else:
-
-            file_path = os.path.join(
-                "uploads",
-                uploaded_file.name
+            file.write(
+                uploaded_file.getbuffer()
             )
 
-            with open(file_path, "wb") as file:
-
-                file.write(
-                    uploaded_file.getbuffer()
-                )
-
-            final_category = category
-
-            if category == "Other":
-
-                final_category = custom_category
-
-            # Store Data
-            item_data = {
-                "image": file_path,
+        charity_collection.insert_one(
+            {
+                "item_name": item_name,
+                "description": description,
+                "condition": condition,
                 "category": final_category,
+                "image": file_path,
                 "location": full_location,
+                "posted_by": st.session_state.username,
                 "status": "Pending"
             }
+        )
 
-            with open(
-                "data/charity_data.json",
-                "r"
-            ) as file:
+        st.success(
+            "✅ Donation submitted successfully. Waiting for admin approval."
+        )
 
-                data = json.load(file)
+        st.balloons()
 
-            data.append(item_data)
-
-            with open(
-                "data/charity_data.json",
-                "w"
-            ) as file:
-
-                json.dump(
-                    data,
-                    file,
-                    indent=4
-                )
-
-            st.success(
-                "Item Donated Successfully ✅"
-            )
-
-            st.switch_page(
-                "pages/charity_list.py"
-            )
-
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.switch_page(
+            "pages/charity_list.py"
+        )

@@ -1,241 +1,271 @@
+# import streamlit as st
+# import os
+
+# from database import charity_collection
+
+# from utils.auth import check_login
+# from utils.styles import load_css
+# from utils.sidebar import sidebar_menu
+
+# # ---------------- AUTH ----------------
+# check_login()
+
+# # ---------------- PAGE CONFIG ----------------
+# st.set_page_config(
+#     page_title="Charity Listings",
+#     page_icon="❤️",
+#     layout="wide"
+# )
+
+# # ---------------- LOAD CSS ----------------
+# load_css()
+
+# # ---------------- SIDEBAR ----------------
+# sidebar_menu()
+
+# # ---------------- TITLE ----------------
+# st.markdown(
+#     '<p class="main-title">❤️ Charity Listings</p>',
+#     unsafe_allow_html=True
+# )
+
+# # ---------------- FETCH ITEMS ----------------
+# items = list(
+#     charity_collection.find()
+# )
+
+# # ---------------- SHOW ITEMS ----------------
+# for item in items:
+
+#     st.markdown(
+#         '<div class="card">',
+#         unsafe_allow_html=True
+#     )
+
+#     col1, col2 = st.columns([1, 2])
+
+#     with col1:
+
+#         if os.path.exists(item["image"]):
+
+#             st.image(
+#                 item["image"],
+#                 width=250
+#             )
+
+#         else:
+
+#             st.warning(
+#                 "Image not found"
+#             )
+
+#     with col2:
+
+#         st.subheader(
+#             item["category"]
+#         )
+
+#         st.write(
+#             f"📍 {item['location']}"
+#         )
+
+#         st.write(
+#             f"👤 Posted By: {item['posted_by']}"
+#         )
+
+#         if item["status"] == "Approved":
+
+#             st.success(
+#                 "Approved ✅"
+#             )
+
+#         elif item["status"] == "Denied":
+
+#             st.error(
+#                 "Denied ❌"
+#             )
+
+#         else:
+
+#             st.warning(
+#                 "Pending ⏳"
+#             )
+
+#     st.markdown(
+#         '</div>',
+#         unsafe_allow_html=True
+#     )
+
+
+#new flow
+
+from utils.sidebar import render_sidebar
+from utils.styles import load_css
+from utils.auth import check_role
+
+check_role("User")
+load_css()
+render_sidebar()
 import streamlit as st
-import json
-import os
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="Charity Listings",
-    page_icon="📋",
-    layout="wide"
+
+from database import (
+    charity_collection,
+    charity_requests_collection
 )
 
-# ---------------- CUSTOM CSS ----------------
-st.markdown("""
-<style>
+from utils.auth import check_login
+from utils.notifications import create_notification
 
-/* Background */
-.stApp {
-    background-color: #0f172a;
-    color: white;
-}
+check_login()
 
-/* Card */
-.item-card {
-    background-color: #1e293b;
-    padding: 25px;
-    border-radius: 20px;
-    margin-bottom: 25px;
-    box-shadow: 0px 0px 15px rgba(255,255,255,0.05);
-}
+st.title("❤️ Charity Listings")
 
-/* Title */
-.title {
-    text-align: center;
-    font-size: 45px;
-    font-weight: bold;
-    color: white;
-}
+# ======================================================
+# FETCH ALL ITEMS
+# ======================================================
 
-/* Buttons */
-div.stButton > button {
-    width: 100%;
-    border-radius: 10px;
-    height: 45px;
-    font-size: 16px;
-    border: none;
-}
+items = charity_collection.find()
 
-</style>
-""", unsafe_allow_html=True)
+for item in items:
 
-# ---------------- TITLE ----------------
-st.markdown(
-    '<p class="title">📋 Charity Listings</p>',
-    unsafe_allow_html=True
-)
+    st.markdown("---")
 
-# ---------------- LOAD DATA ----------------
-with open("data/charity_data.json", "r") as file:
-    data = json.load(file)
+    # ======================================================
+    # IMAGE
+    # ======================================================
 
-# ---------------- EMPTY LIST ----------------
-if len(data) == 0:
+    try:
 
-    st.warning("No charity items posted yet.")
+        st.image(
+            item["image"],
+            width=250
+        )
 
-# ---------------- SHOW ITEMS ----------------
-else:
+    except:
 
-    for index, item in enumerate(data):
+        st.warning("Image not found")
 
-        with st.container():
+    # ======================================================
+    # ITEM DETAILS
+    # ======================================================
 
-            st.markdown(
-                '<div class="item-card">',
-                unsafe_allow_html=True
-            )
+    st.subheader(
+        item["category"]
+    )
 
-            col1, col2 = st.columns([3, 1])
+    st.write(
+        f"📍 {item['location']}"
+    )
 
-            # ----------------------------------
-            # LEFT SIDE
-            # ----------------------------------
-            with col1:
+    st.write(
+        f"👤 Donor: {item['posted_by']}"
+    )
 
-                # Show Image Safely
-                if os.path.exists(item["image"]):
+    # ======================================================
+    # STATUS
+    # ======================================================
 
-                    st.image(
-                        item["image"],
-                        width=300
-                    )
+    if item["status"] == "Pending":
 
-                else:
+        st.warning(
+            "⏳ Status: Pending Approval"
+        )
 
-                    st.warning(
-                        "Image not found."
-                    )
+    elif item["status"] == "Approved":
 
-                st.subheader(
-                    f"📦 {item['category']}"
+        st.success(
+            "✅ Status: Approved"
+        )
+
+    elif item["status"] == "Rejected":
+
+        st.error(
+            "❌ Status: Rejected"
+        )
+
+    # ======================================================
+    # ONLY VOLUNTEER + APPROVED
+    # ======================================================
+
+    if (
+        st.session_state.role == "Volunteer"
+        and item["status"] == "Approved"
+    ):
+
+        existing = charity_requests_collection.find_one(
+            {
+                "charity_id": str(item["_id"]),
+                "volunteer": st.session_state.username
+            }
+        )
+
+        # ======================================================
+        # EXISTING REQUEST
+        # ======================================================
+
+        if existing:
+
+            if existing["status"] == "Pending":
+
+                st.warning(
+                    "⏳ Donation Request Pending"
                 )
 
-                st.write(
-                    f"📍 {item['location']}"
+            elif existing["status"] == "Accepted":
+
+                st.success(
+                    "✅ Donation Request Accepted"
                 )
 
-                # Status
-                status = item.get(
-                    "status",
-                    "Pending"
+            elif existing["status"] == "Rejected":
+
+                st.error(
+                    "❌ Donation Request Rejected"
                 )
 
-                if status == "Approved":
+            elif existing["status"] == "Completed":
 
-                    st.success(
-                        f"✅ Status: {status}"
-                    )
+                st.success(
+                    "✔ Donation Collected"
+                )
 
-                elif status == "Denied":
+        else:
 
-                    st.error(
-                        f"❌ Status: {status}"
-                    )
+            # ======================================================
+            # ACCEPT DONATION
+            # ======================================================
 
-                else:
+            if st.button(
+                "❤️ Accept Donation",
+                key=str(item["_id"])
+            ):
 
-                    st.warning(
-                        f"⏳ Status: {status}"
-                    )
+                request_data = {
 
-            # ----------------------------------
-            # RIGHT SIDE
-            # ----------------------------------
-            with col2:
+                    "charity_id": str(item["_id"]),
 
-                st.subheader("Admin")
+                    "donor": item["posted_by"],
 
-                # APPROVE
-                if st.button(
-                    "✅ Approve",
-                    key=f"approve_{index}"
-                ):
+                    "volunteer": st.session_state.username,
 
-                    data[index]["status"] = "Approved"
+                    "item_name": item["category"],
 
-                    with open(
-                        "data/charity_data.json",
-                        "w"
-                    ) as file:
+                    "status": "Pending"
+                }
 
-                        json.dump(
-                            data,
-                            file,
-                            indent=4
-                        )
+                charity_requests_collection.insert_one(
+                    request_data
+                )
 
-                    st.rerun()
+                # ======================================================
+                # NOTIFICATION
+                # ======================================================
 
-                # DENY
-                if st.button(
-                    "❌ Deny",
-                    key=f"deny_{index}"
-                ):
+                create_notification(
+                    item["posted_by"],
+                    f"{st.session_state.username} wants to collect your donation."
+                )
 
-                    data[index]["status"] = "Denied"
-
-                    with open(
-                        "data/charity_data.json",
-                        "w"
-                    ) as file:
-
-                        json.dump(
-                            data,
-                            file,
-                            indent=4
-                        )
-
-                    st.rerun()
-
-                # DELETE
-                if st.button(
-                    "🗑 Delete",
-                    key=f"delete_{index}"
-                ):
-
-                    st.session_state[
-                        f"confirm_delete_{index}"
-                    ] = True
-
-                # CONFIRM DELETE
-                if st.session_state.get(
-                    f"confirm_delete_{index}",
-                    False
-                ):
-
-                    st.warning(
-                        "Are you sure?"
-                    )
-
-                    yes_col, no_col = st.columns(2)
-
-                    # YES
-                    with yes_col:
-
-                        if st.button(
-                            "Yes",
-                            key=f"yes_{index}"
-                        ):
-
-                            data.pop(index)
-
-                            with open(
-                                "data/charity_data.json",
-                                "w"
-                            ) as file:
-
-                                json.dump(
-                                    data,
-                                    file,
-                                    indent=4
-                                )
-
-                            st.rerun()
-
-                    # NO
-                    with no_col:
-
-                        if st.button(
-                            "No",
-                            key=f"no_{index}"
-                        ):
-
-                            st.session_state[
-                                f"confirm_delete_{index}"
-                            ] = False
-
-                            st.rerun()
-
-            st.markdown(
-                '</div>',
-                unsafe_allow_html=True
-            )
+                st.success(
+                    "Donation Request Sent Successfully"
+                )

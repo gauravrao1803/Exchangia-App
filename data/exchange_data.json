@@ -10,5 +10,11 @@
         "category": "Electronics",
         "location": "Rohtak, Haryana, India",
         "status": "Denied"
+    },
+    {
+        "image": "uploads\\ferrari-e-suv-2-copy-680287cac36b2.jpg",
+        "category": "Electronics",
+        "location": "Devru, Haryana, India",
+        "status": "Pending"
     }
 ]
