@@ -1,5 +1,5 @@
-import streamlit as st
 import os
+import streamlit as st
 
 from database import (
     charity_collection,
@@ -9,18 +9,24 @@ from database import (
 from utils.auth import check_role
 from utils.sidebar import render_sidebar
 from utils.styles import load_css
+from utils.ngo_notifications import notify_nearby_ngos
+from utils.volunteer_notifications import notify_nearby_volunteers
 
 # ==========================================
-# AUTH
+# PAGE CONFIG
 # ==========================================
-
-check_role("Admin")
 
 st.set_page_config(
     page_title="Charity Approval",
     page_icon="❤️",
     layout="wide"
 )
+
+# ==========================================
+# AUTH
+# ==========================================
+
+check_role("Admin")
 
 load_css()
 render_sidebar()
@@ -29,106 +35,177 @@ render_sidebar()
 # HEADER
 # ==========================================
 
-st.markdown("""
-<div class="hero">
-<h2>❤️ Charity Approval Center</h2>
-<p>Review and manage donation listings submitted by users.</p>
-</div>
-""", unsafe_allow_html=True)
+st.title("❤️ Charity Approval Center")
+
+st.caption(
+    "Approve or reject donation listings submitted by users."
+)
 
 # ==========================================
-# STATS
+# DASHBOARD STATS
 # ==========================================
-
-pending = charity_collection.count_documents(
-    {"status": "Pending"}
-)
-
-approved = charity_collection.count_documents(
-    {"status": "Approved"}
-)
-
-rejected = charity_collection.count_documents(
-    {"status": "Rejected"}
-)
 
 total = charity_collection.count_documents({})
 
+pending = charity_collection.count_documents(
+    {
+        "status": "Pending"
+    }
+)
+
+approved = charity_collection.count_documents(
+    {
+        "status": "Approved"
+    }
+)
+
+rejected = charity_collection.count_documents(
+    {
+        "status": "Rejected"
+    }
+)
+
 c1, c2, c3, c4 = st.columns(4)
 
-c1.metric("Total Donations", total)
-c2.metric("Pending", pending)
-c3.metric("Approved", approved)
-c4.metric("Rejected", rejected)
+c1.metric(
+    "Total Donations",
+    total
+)
+
+c2.metric(
+    "Pending",
+    pending
+)
+
+c3.metric(
+    "Approved",
+    approved
+)
+
+c4.metric(
+    "Rejected",
+    rejected
+)
 
 st.divider()
 
 # ==========================================
-# FILTER
+# SEARCH + FILTER
 # ==========================================
 
-search = st.text_input(
-    "🔍 Search by Category"
+col1, col2 = st.columns([3, 1])
+
+with col1:
+
+    search = st.text_input(
+        "🔍 Search Category"
+    )
+
+with col2:
+
+    status_filter = st.selectbox(
+        "Status",
+        [
+            "All",
+            "Pending",
+            "Approved",
+            "Rejected"
+        ]
+    )
+
+st.write("")
+
+# ==========================================
+# FETCH DATA
+# ==========================================
+
+items = charity_collection.find().sort(
+    "_id",
+    -1
 )
 
-status_filter = st.selectbox(
-    "Filter Status",
-    [
-        "All",
-        "Pending",
-        "Approved",
-        "Rejected"
-    ]
-)
-
 # ==========================================
-# DATA
+# DISPLAY ITEMS
 # ==========================================
-
-items = charity_collection.find()
 
 for item in items:
 
-    category = item.get("category", "")
+    category = item.get(
+        "category",
+        ""
+    )
 
     if search:
 
         if search.lower() not in category.lower():
+
             continue
 
     if status_filter != "All":
 
         if item["status"] != status_filter:
+
             continue
 
     with st.container(border=True):
 
-        col1, col2 = st.columns([1, 2])
+        img_col, info_col = st.columns([1, 2])
 
-        with col1:
+        # ==================================
+        # IMAGE
+        # ==================================
 
-            try:
+        with img_col:
 
-                if os.path.exists(item["image"]):
+            image_path = item.get("image")
 
-                    st.image(
-                        item["image"],
-                        use_container_width=True
-                    )
+            if image_path and os.path.exists(image_path):
 
-            except:
-                pass
+                st.image(
+                    image_path,
+                    use_container_width=True
+                )
 
-        with col2:
+            else:
 
-            st.subheader(category)
+                st.warning(
+                    "Image not available"
+                )
 
-            st.write(
-                f"👤 User : {item['posted_by']}"
+        # ==================================
+        # DETAILS
+        # ==================================
+
+        with info_col:
+
+            st.subheader(
+                item.get(
+                    "item_name",
+                    category
+                )
             )
 
             st.write(
-                f"📍 Location : {item['location']}"
+                f"**Category:** {category}"
+            )
+
+            st.write(
+                f"**Condition:** {item.get('condition','N/A')}"
+            )
+
+            st.write(
+                item.get(
+                    "description",
+                    ""
+                )
+            )
+
+            st.write(
+                f"📍 {item.get('location','Unknown')}"
+            )
+
+            st.write(
+                f"👤 Donor : {item['posted_by']}"
             )
 
             status = item["status"]
@@ -136,30 +213,30 @@ for item in items:
             if status == "Pending":
 
                 st.warning(
-                    "⏳ Pending Approval"
+                    "Pending Approval"
                 )
 
             elif status == "Approved":
 
                 st.success(
-                    "✅ Approved"
+                    "Approved"
                 )
 
-            elif status == "Rejected":
+            else:
 
                 st.error(
-                    "❌ Rejected"
+                    "Rejected"
                 )
 
             # ==================================
-            # ACTIONS
+            # ACTION BUTTONS
             # ==================================
 
             if status == "Pending":
 
-                a, b = st.columns(2)
+                colA, colB = st.columns(2)
 
-                with a:
+                with colA:
 
                     if st.button(
                         "✅ Approve",
@@ -168,7 +245,9 @@ for item in items:
                     ):
 
                         charity_collection.update_one(
-                            {"_id": item["_id"]},
+                            {
+                                "_id": item["_id"]
+                            },
                             {
                                 "$set":
                                 {
@@ -183,20 +262,30 @@ for item in items:
                                 item["posted_by"],
 
                                 "message":
-                                "Your donation listing has been approved.",
+                                "🎉 Your donation has been approved.",
 
                                 "read":
                                 False
                             }
                         )
 
+                        if (
+                            item.get("latitude") is not None
+                            and
+                            item.get("longitude") is not None
+                        ):
+
+                            notify_nearby_ngos(item)
+
+                            notify_nearby_volunteers(item)
+
                         st.success(
-                            "Approved Successfully"
+                            "Donation Approved Successfully"
                         )
 
                         st.rerun()
 
-                with b:
+                with colB:
 
                     if st.button(
                         "❌ Reject",
@@ -205,7 +294,9 @@ for item in items:
                     ):
 
                         charity_collection.update_one(
-                            {"_id": item["_id"]},
+                            {
+                                "_id": item["_id"]
+                            },
                             {
                                 "$set":
                                 {
@@ -220,16 +311,20 @@ for item in items:
                                 item["posted_by"],
 
                                 "message":
-                                "Your donation listing has been rejected.",
+                                "❌ Your donation has been rejected.",
 
                                 "read":
                                 False
                             }
                         )
 
+                        st.error(
+                            "Donation Rejected"
+                        )
+
                         st.rerun()
 
-            st.divider()
+            st.write("")
 
             if st.button(
                 "🗑 Delete Listing",

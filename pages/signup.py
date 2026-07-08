@@ -138,13 +138,17 @@ if signup_btn:
         else:
 
             users_collection.insert_one(
-                {
-                    "username": username,
-                    "email": email,
-                    "password": password,
-                    "role": "User"
-                }
-            )
+    {
+        "username": username,
+        "email": email,
+        "password": password,
+        "role": "User",
+
+        "points": 0,
+
+        "badge": "🌱 Beginner"
+    }
+)
 
             st.success(
                 "Account created successfully ✅"

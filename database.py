@@ -21,6 +21,8 @@ client = MongoClient(MONGO_URI)
 db = client["ExchangiaDB"]
 
 # ---------------- COLLECTIONS ----------------
+# Existing collections
+
 users_collection = db["users"]
 
 exchange_collection = db["exchange_items"]
@@ -29,10 +31,20 @@ charity_collection = db["charity_items"]
 
 volunteer_collection = db["volunteer_requests"]
 
+notification_collection = db["notifications"]
+
 exchange_requests_collection = db["exchange_requests"]
 
 charity_requests_collection = db["charity_requests"]
 
-chat_collection = db["chats"]
+# ==========================
+# NEW COLLECTIONS
+# ==========================
 
-notification_collection = db["notifications"]
+points_collection = db["reward_points"]
+
+badges_collection = db["badges"]
+
+leaderboard_collection = db["leaderboard"]
+
+reward_history_collection = db["reward_history"]

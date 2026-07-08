@@ -1,12 +1,11 @@
-import streamlit as st
 import os
 import uuid
 
-from streamlit_js_eval import get_geolocation
+import streamlit as st
 from geopy.geocoders import Nominatim
+from streamlit_js_eval import get_geolocation
 
 from database import charity_collection
-
 from utils.auth import check_role
 from utils.sidebar import render_sidebar
 from utils.styles import load_css
@@ -31,15 +30,15 @@ load_css()
 render_sidebar()
 
 # =====================================
-# HERO SECTION
+# HERO
 # =====================================
 
 st.markdown("""
 <div class="hero-card">
-    <h1>❤️ Donate an Item</h1>
-    <p>
-        Give your unused items a second life and help people in need.
-    </p>
+<h1>❤️ Donate an Item</h1>
+<p>
+Help your community by donating items you no longer use.
+</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -53,10 +52,13 @@ os.makedirs(
 )
 
 # =====================================
-# LOCATION DETECTION
+# LOCATION
 # =====================================
 
 full_location = "Unknown Location"
+
+latitude = None
+longitude = None
 
 location_data = get_geolocation()
 
@@ -100,7 +102,7 @@ if location_data:
                 f"{city}, {state}, {country}"
             )
 
-    except:
+    except Exception:
 
         pass
 
@@ -108,14 +110,9 @@ if location_data:
 # DONATION FORM
 # =====================================
 
-with st.form(
-    "charity_form",
-    clear_on_submit=False
-):
+with st.form("donation_form"):
 
-    st.markdown(
-        "### 📦 Donation Information"
-    )
+    st.subheader("📦 Donation Details")
 
     uploaded_file = st.file_uploader(
         "Upload Item Image",
@@ -170,16 +167,15 @@ with st.form(
     )
 
     description = st.text_area(
-        "Description",
-        placeholder="Describe item condition, age, accessories, etc."
+        "Description"
     )
 
-    st.markdown("### 📍 Location")
+    st.subheader("📍 Donation Location")
 
     st.info(full_location)
 
     submitted = st.form_submit_button(
-        "❤️ Post Donation",
+        "❤️ Submit Donation",
         use_container_width=True
     )
 
@@ -195,67 +191,98 @@ if submitted:
             "Please upload an image."
         )
 
-    elif not item_name.strip():
+        st.stop()
+
+    if item_name.strip() == "":
 
         st.error(
-            "Please enter item name."
+            "Item name is required."
         )
 
-    else:
+        st.stop()
 
-        final_category = category
+    if category == "Other":
 
-        if category == "Other":
+        if custom_category.strip() == "":
 
-            if not custom_category.strip():
-
-                st.error(
-                    "Please enter custom category."
-                )
-
-                st.stop()
-
-            final_category = custom_category
-
-        extension = uploaded_file.name.split(".")[-1]
-
-        unique_filename = (
-            f"{uuid.uuid4()}.{extension}"
-        )
-
-        file_path = os.path.join(
-            "uploads",
-            unique_filename
-        )
-
-        with open(
-            file_path,
-            "wb"
-        ) as file:
-
-            file.write(
-                uploaded_file.getbuffer()
+            st.error(
+                "Please enter custom category."
             )
 
-        charity_collection.insert_one(
-            {
-                "item_name": item_name,
-                "description": description,
-                "condition": condition,
-                "category": final_category,
-                "image": file_path,
-                "location": full_location,
-                "posted_by": st.session_state.username,
-                "status": "Pending"
-            }
+            st.stop()
+
+        category = custom_category
+
+    extension = uploaded_file.name.split(".")[-1]
+
+    filename = f"{uuid.uuid4()}.{extension}"
+
+    filepath = os.path.join(
+        "uploads",
+        filename
+    )
+
+    with open(
+        filepath,
+        "wb"
+    ) as file:
+
+        file.write(
+            uploaded_file.getbuffer()
         )
 
-        st.success(
-            "✅ Donation submitted successfully. Waiting for admin approval."
-        )
+    charity_collection.insert_one(
+        {
 
-        st.balloons()
+            "item_name": item_name,
 
-        st.switch_page(
-            "pages/charity_list.py"
-        )
+            "description": description,
+
+            "condition": condition,
+
+            "category": category,
+
+            "image": filepath,
+
+            "location": full_location,
+
+            "latitude": latitude,
+
+            "longitude": longitude,
+
+            "posted_by": st.session_state.username,
+
+            "status": "Pending",
+
+            # future reward system
+            "reward_given": False,
+
+            # volunteer pickup
+            "picked_up": False,
+
+            # ngo received
+            "completed": False,
+
+            "created_at": str(
+                st.session_state.get(
+                    "login_time",
+                    ""
+                )
+            )
+
+        }
+    )
+
+    st.success(
+        "🎉 Donation submitted successfully!"
+    )
+
+    st.info(
+        "Your donation is waiting for admin approval."
+    )
+
+    st.balloons()
+
+    st.switch_page(
+        "pages/charity_list.py"
+    )

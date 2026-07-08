@@ -1,27 +1,60 @@
 import streamlit as st
-from utils.sidebar import render_sidebar
-from utils.styles import load_css
-from utils.auth import check_role
-
-check_role("Volunteer")
-load_css()
-render_sidebar()
+from utils.rewards import add_points
+from utils.badges import update_badge
 from database import (
-    charity_requests_collection
+    charity_requests_collection,
+    charity_collection
 )
 
-from utils.auth import check_login
+from utils.auth import (
+    check_login,
+    check_role
+)
+
+from utils.sidebar import render_sidebar
+from utils.styles import load_css
+from utils.rewards import add_points
+
+# ==========================================
+# PAGE CONFIG
+# ==========================================
+
+st.set_page_config(
+    page_title="Volunteer Pickup Requests",
+    page_icon="🚚",
+    layout="wide"
+)
+
+# ==========================================
+# AUTH
+# ==========================================
 
 check_login()
+check_role("Volunteer")
 
-# ONLY VOLUNTEER
-if st.session_state.role != "Volunteer":
+# ==========================================
+# LOAD UI
+# ==========================================
 
-    st.error("Access Denied")
+load_css()
+render_sidebar()
 
-    st.stop()
+# ==========================================
+# HEADER
+# ==========================================
 
-st.title("🚚 Volunteer Pickup Requests")
+st.markdown("""
+<div class="hero-card">
+    <h1>🚚 Volunteer Pickup Requests</h1>
+    <p>
+        Manage your assigned donation pickups and earn reward points.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# FETCH REQUESTS
+# ==========================================
 
 requests = charity_requests_collection.find(
     {
@@ -29,52 +62,168 @@ requests = charity_requests_collection.find(
     }
 )
 
+# ==========================================
+# SHOW REQUESTS
+# ==========================================
+
+found = False
+
 for req in requests:
 
-    st.markdown("---")
+    found = True
 
-    st.subheader(
-        req["item_name"]
-    )
+    with st.container(border=True):
 
-    st.write(
-        f"👤 Donor: {req['donor']}"
-    )
+        st.subheader(req["item_name"])
 
-    st.write(
-        f"📌 Status: {req['status']}"
-    )
+        st.write(f"👤 Donor : {req['donor']}")
 
-    # ---------------- ACCEPTED ----------------
+        st.write(f"📌 Status : {req['status']}")
 
-    if req["status"] == "Accepted":
+        # =====================================
+        # ACCEPTED
+        # =====================================
 
-        if st.button(
-            "✔ Mark Donation Collected",
-            key=f"complete_{req['_id']}"
-        ):
-
-            charity_requests_collection.update_one(
-                {
-                    "_id": req["_id"]
-                },
-                {
-                    "$set": {
-                        "status": "Completed"
-                    }
-                }
-            )
+        if req["status"] == "Accepted":
 
             st.success(
-                "Donation Marked Completed"
+                "Pickup Assigned To You"
             )
 
-            st.rerun()
+            if st.button(
+                "✅ Mark Donation Collected",
+                key=f"complete_{req['_id']}",
+                use_container_width=True
+            ):
 
-    # ---------------- COMPLETED ----------------
+                # -------------------------------
+                # COMPLETE REQUEST
+                # -------------------------------
 
-    elif req["status"] == "Completed":
+                charity_requests_collection.update_one(
+                    {
+                        "_id": req["_id"]
+                    },
+                    {
+                        "$set":
+                        {
+                            "status": "Completed"
+                        }
+                    }
+                )
 
-        st.success(
-            "Donation Already Collected"
-        )
+                # -------------------------------
+                # GET DONATION
+                # -------------------------------
+
+                donation = charity_collection.find_one(
+                    {
+                        "_id": req["donation_id"]
+                    }
+                )
+
+                if donation:
+
+                    # Prevent duplicate rewards
+
+                    if not donation.get(
+                        "reward_given",
+                        False
+                    ):
+
+                        # Reward Donor
+
+                        add_points(
+                            donation["posted_by"],
+                            50,
+                            "Donation Completed"
+                        )
+
+                        # Reward Volunteer
+
+                        add_points(
+                            st.session_state.username,
+                            60,
+                            "Donation Pickup"
+                        )
+
+                        charity_collection.update_one(
+                            {
+                                "_id": donation["_id"]
+                            },
+                            {
+                                "$set":
+                                {
+                                    "reward_given": True,
+                                    "completed": True
+                                }
+                            }
+                        )
+
+                st.success(
+                    "Donation completed successfully 🎉"
+                )
+
+                st.balloons()
+
+                st.rerun()
+
+        # =====================================
+        # COMPLETED
+        # =====================================
+
+        elif req["status"] == "Completed":
+
+            st.success(
+                "✅ Donation Already Collected"
+            )
+
+        # =====================================
+        # PENDING
+        # =====================================
+
+        elif req["status"] == "Pending":
+
+            st.warning(
+                "Waiting for NGO confirmation."
+            )
+
+        # =====================================
+        # REJECTED
+        # =====================================
+
+        elif req["status"] == "Rejected":
+
+            st.error(
+                "Pickup Request Rejected"
+            )
+
+# ==========================================
+# EMPTY STATE
+# ==========================================
+
+if not found:
+
+    st.info(
+        "No pickup requests assigned yet."
+    )
+
+add_points(
+    donation["posted_by"],
+    50,
+    "Donation Completed"
+)
+
+update_badge(
+    donation["posted_by"]
+)
+
+add_points(
+    st.session_state.username,
+    60,
+    "Donation Pickup"
+)
+
+update_badge(
+    st.session_state.username
+)

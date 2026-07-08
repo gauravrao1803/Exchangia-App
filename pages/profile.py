@@ -19,7 +19,7 @@ from utils.styles import load_css
 check_login()
 
 st.set_page_config(
-    page_title="Profile",
+    page_title="My Profile",
     page_icon="👤",
     layout="wide"
 )
@@ -31,10 +31,28 @@ render_sidebar()
 # USER DATA
 # ==========================================
 
+username = st.session_state.username
+
 user = users_collection.find_one(
     {
-        "username": st.session_state.username
+        "username": username
     }
+)
+
+# ==========================================
+# USER INFO
+# ==========================================
+
+points = user.get("points", 0)
+
+badge = user.get(
+    "badge",
+    "🌱 Beginner"
+)
+
+role = user.get(
+    "role",
+    "User"
 )
 
 # ==========================================
@@ -43,28 +61,32 @@ user = users_collection.find_one(
 
 exchange_posts = exchange_collection.count_documents(
     {
-        "posted_by": st.session_state.username
+        "posted_by": username
     }
 )
 
 charity_posts = charity_collection.count_documents(
     {
-        "posted_by": st.session_state.username
+        "posted_by": username
     }
 )
 
 exchange_requests = exchange_requests_collection.count_documents(
     {
         "$or": [
-            {"owner": st.session_state.username},
-            {"requested_by": st.session_state.username}
+            {
+                "owner": username
+            },
+            {
+                "requested_by": username
+            }
         ]
     }
 )
 
 notifications = notification_collection.count_documents(
     {
-        "username": st.session_state.username
+        "username": username
     }
 )
 
@@ -72,7 +94,12 @@ notifications = notification_collection.count_documents(
 # HEADER
 # ==========================================
 
-st.title("👤 My Profile")
+st.markdown(f"""
+<div class="hero-card">
+    <h1>👤 {username}</h1>
+    <p>Your Exchangia Community Profile</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ==========================================
 # PROFILE CARD
@@ -86,88 +113,155 @@ with st.container(border=True):
 
         st.image(
             "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-            width=120
+            width=140
         )
 
     with col2:
 
-        st.subheader(user["username"])
+        st.subheader(username)
 
-        st.write(
-            f"📧 {user.get('email','No Email')}"
+        st.write(f"📧 {user.get('email','No Email')}")
+
+        st.write(f"🎖 Badge : **{badge}**")
+
+        st.metric(
+            "⭐ Reward Points",
+            points
         )
 
-        role = user.get("role", "User")
-
         if role == "Admin":
-            st.success(f"🛡️ {role}")
+
+            st.success("🛡️ Admin")
 
         elif role == "Volunteer":
-            st.info(f"🤝 {role}")
+
+            st.info("🤝 Volunteer")
 
         else:
-            st.warning(f"👤 {role}")
+
+            st.warning("👤 User")
 
 # ==========================================
-# STATS
+# BADGE PROGRESS
 # ==========================================
 
-st.markdown("## 📊 Account Statistics")
+st.subheader("🏅 Badge Progress")
 
-col1, col2, col3, col4 = st.columns(4)
+levels = [
+    (0, "🌱 Beginner"),
+    (200, "🥉 Bronze"),
+    (500, "🥈 Silver"),
+    (1000, "🥇 Gold"),
+    (2000, "🏆 Legend")
+]
 
-with col1:
-    st.metric(
-        "Exchange Posts",
-        exchange_posts
+next_points = None
+
+for p, name in levels:
+
+    if points < p:
+
+        next_points = p
+
+        break
+
+if next_points:
+
+    progress = points / next_points
+
+    st.progress(
+        min(progress, 1.0)
     )
 
-with col2:
-    st.metric(
-        "Charity Posts",
-        charity_posts
+    st.caption(
+        f"{next_points-points} points remaining to reach the next badge."
     )
 
-with col3:
-    st.metric(
-        "Requests",
-        exchange_requests
-    )
+else:
 
-with col4:
-    st.metric(
-        "Notifications",
-        notifications
+    st.success(
+        "🏆 Congratulations! You have achieved the highest badge."
     )
 
 # ==========================================
-# ACCOUNT STATUS
+# STATISTICS
 # ==========================================
 
-st.markdown("## 🔐 Account Status")
+st.subheader("📊 Statistics")
+
+c1, c2, c3, c4 = st.columns(4)
+
+c1.metric(
+    "Exchange Posts",
+    exchange_posts
+)
+
+c2.metric(
+    "Donation Posts",
+    charity_posts
+)
+
+c3.metric(
+    "Exchange Requests",
+    exchange_requests
+)
+
+c4.metric(
+    "Notifications",
+    notifications
+)
+
+# ==========================================
+# COMMUNITY IMPACT
+# ==========================================
+
+st.subheader("🌍 Community Impact")
+
+impact = charity_posts * 5 + exchange_posts * 2
+
+st.metric(
+    "Impact Score",
+    impact
+)
+
+if impact >= 100:
+
+    st.success(
+        "Amazing! You are making a huge community impact."
+    )
+
+elif impact >= 50:
+
+    st.info(
+        "Great work! Keep helping the community."
+    )
+
+else:
+
+    st.warning(
+        "Start donating and exchanging more items to increase your impact."
+    )
+
+# ==========================================
+# ACCOUNT SUMMARY
+# ==========================================
+
+st.subheader("📌 Account Summary")
+
+st.write(f"👤 Username : **{username}**")
+
+st.write(f"🎖 Badge : **{badge}**")
+
+st.write(f"⭐ Total Reward Points : **{points}**")
+
+st.write(f"🔄 Exchange Posts : **{exchange_posts}**")
+
+st.write(f"❤️ Donation Posts : **{charity_posts}**")
+
+st.write(f"📩 Requests : **{exchange_requests}**")
+
+st.write(f"🔔 Notifications : **{notifications}**")
 
 st.success(
     "Your account is active and verified."
-)
-
-# ==========================================
-# ACTIVITY SUMMARY
-# ==========================================
-
-st.markdown("## 📌 Activity Summary")
-
-st.write(
-    f"🔄 You have posted **{exchange_posts}** exchange item(s)."
-)
-
-st.write(
-    f"❤️ You have posted **{charity_posts}** donation item(s)."
-)
-
-st.write(
-    f"📩 You have participated in **{exchange_requests}** exchange request(s)."
-)
-
-st.write(
-    f"🔔 You have received **{notifications}** notification(s)."
 )

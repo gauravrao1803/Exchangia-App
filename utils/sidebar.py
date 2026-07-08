@@ -1,18 +1,53 @@
 import streamlit as st
-from database import notification_collection
+
+from database import (
+    users_collection,
+    notification_collection
+)
 
 
 def render_sidebar():
+
+    # ======================================
+    # SESSION
+    # ======================================
+
+    username = st.session_state.get(
+        "username",
+        "Guest"
+    )
 
     role = st.session_state.get(
         "role",
         ""
     )
 
-    username = st.session_state.get(
-        "username",
-        "Guest"
+    # ======================================
+    # USER INFO
+    # ======================================
+
+    user = users_collection.find_one(
+        {
+            "username": username
+        }
     )
+
+    if user:
+
+        points = user.get(
+            "points",
+            0
+        )
+
+        badge = user.get(
+            "badge",
+            "🌱 Beginner"
+        )
+
+    else:
+
+        points = 0
+        badge = "🌱 Beginner"
 
     unread = notification_collection.count_documents(
         {
@@ -27,10 +62,7 @@ def render_sidebar():
 
     st.sidebar.markdown(
         """
-        <div style="
-        text-align:center;
-        padding:15px;
-        ">
+        <div style="text-align:center;padding:10px;">
             <h2>♻️ Exchangia</h2>
             <p>Exchange • Donate • Help</p>
         </div>
@@ -42,8 +74,24 @@ def render_sidebar():
         f"👤 {username}"
     )
 
+    st.sidebar.write(
+        f"🏅 {badge}"
+    )
+
+    st.sidebar.write(
+        f"⭐ {points} Points"
+    )
+
+    progress = min(points / 500, 1.0)
+
+    st.sidebar.progress(progress)
+
+    st.sidebar.caption(
+        f"{points}/500 Points to next level"
+    )
+
     # ======================================
-    # ROLE BADGES
+    # ROLE
     # ======================================
 
     if role == "Admin":
@@ -72,77 +120,80 @@ def render_sidebar():
 
     if role == "User":
 
-        st.sidebar.markdown(
-            "### 🏠 Main"
-        )
+        st.sidebar.subheader("🏠 Dashboard")
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/dashboard.py",
             label="Dashboard"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/profile.py",
             label="Profile"
         )
 
-        st.sidebar.markdown(
-            "### 🔄 Exchange"
-        )
+        st.sidebar.divider()
 
-        st.page_link(
+        st.sidebar.subheader("🔄 Exchange")
+
+        st.sidebar.page_link(
             "pages/exchange.py",
             label="Create Exchange"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/exchange_list.py",
             label="Marketplace"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/my_exchange_posts.py",
             label="My Listings"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/my_requests.py",
             label="Exchange Requests"
         )
 
-        st.sidebar.markdown(
-            "### ❤️ Charity"
-        )
+        st.sidebar.divider()
 
-        st.page_link(
+        st.sidebar.subheader("❤️ Charity")
+
+        st.sidebar.page_link(
             "pages/charity.py",
             label="Donate Item"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/charity_requests.py",
             label="Donation Requests"
         )
 
-        st.sidebar.markdown(
-            "### 💬 Communication"
-        )
+        st.sidebar.divider()
 
-        st.page_link(
+        st.sidebar.subheader("💬 Communication")
+
+        st.sidebar.page_link(
             "pages/chat.py",
             label="Chats"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/notifications.py",
             label=f"Notifications ({unread})"
         )
 
-        st.sidebar.markdown(
-            "### 🤝 Volunteer"
+        st.sidebar.divider()
+
+        st.sidebar.subheader("🌟 Community")
+
+        st.sidebar.page_link(
+            "pages/leaderboard.py",
+            label="Leaderboard"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/apply_volunteer.py",
             label="Become Volunteer"
         )
@@ -153,42 +204,45 @@ def render_sidebar():
 
     elif role == "Volunteer":
 
-        st.sidebar.markdown(
-            "### 🤝 Volunteer"
-        )
+        st.sidebar.subheader("🤝 Volunteer")
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/volunteer_dashboard.py",
             label="Dashboard"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/charity_list.py",
             label="Available Donations"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/volunteer_requests.py",
             label="My Pickups"
         )
 
-        st.sidebar.markdown(
-            "### 💬 Communication"
-        )
+        st.sidebar.divider()
 
-        st.page_link(
+        st.sidebar.subheader("💬 Communication")
+
+        st.sidebar.page_link(
             "pages/chat.py",
             label="Chats"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/notifications.py",
             label=f"Notifications ({unread})"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/profile.py",
             label="Profile"
+        )
+
+        st.sidebar.page_link(
+            "pages/leaderboard.py",
+            label="Leaderboard"
         )
 
     # ======================================
@@ -197,38 +251,41 @@ def render_sidebar():
 
     elif role == "Admin":
 
-        st.sidebar.markdown(
-            "### 🛡 Admin Panel"
-        )
+        st.sidebar.subheader("🛡 Admin Panel")
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/admin_dashboard.py",
             label="Dashboard"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/admin_exchange_list.py",
             label="Exchange Approvals"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/admin_charity_list.py",
             label="Charity Approvals"
         )
 
-        st.page_link(
+        st.sidebar.page_link(
             "pages/admin_volunteer_requests.py",
             label="Volunteer Requests"
         )
 
-    st.sidebar.divider()
+        st.sidebar.page_link(
+            "pages/profile.py",
+            label="Profile"
+        )
 
     # ======================================
     # FOOTER
     # ======================================
 
+    st.sidebar.divider()
+
     st.sidebar.caption(
-        "Exchangia v1.0"
+        "Exchangia v2.0 🚀"
     )
 
     if st.sidebar.button(
